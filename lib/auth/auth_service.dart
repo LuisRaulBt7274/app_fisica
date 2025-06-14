@@ -114,4 +114,21 @@ class AuthService {
       throw AuthException('Error al actualizar perfil: ${e.toString()}');
     }
   }
+
+  // Agregar al final de la clase AuthService:
+
+  // Verificar si el usuario está autenticado
+  bool get isAuthenticated => currentUser != null;
+
+  // Obtener el nombre del usuario actual
+  String get currentUserName {
+    final user = currentUser;
+    return user?.userMetadata?['full_name'] ?? 'Usuario';
+  }
+
+  // Obtener el email del usuario actual
+  String get currentUserEmail {
+    final user = currentUser;
+    return user?.email ?? '';
+  }
 }

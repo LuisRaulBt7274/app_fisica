@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'document_service.dart';
 import 'document_model.dart';
-import '../widgets/custom_button.dart';
-import '../widgets/loading_indicator.dart';
+import 'document_parser.dart';
+import 'physics_ai_service.dart';
+import '../app/constants.dart';
 
 class DocumentUploadScreen extends StatefulWidget {
   const DocumentUploadScreen({Key? key}) : super(key: key);
@@ -13,22 +16,33 @@ class DocumentUploadScreen extends StatefulWidget {
 }
 
 class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
+  // Servicios
   final DocumentService _documentService = DocumentService();
+  final PhysicsAIService _aiService = PhysicsAIService();
+  final DocumentParser _parser = DocumentParser();
+
+  // Controladores
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _tagsController = TextEditingController();
 
+  // Estado
   List<Document> _documents = [];
-  File? _selectedFile;
   bool _isLoading = false;
   bool _isUploading = false;
   String? _error;
   String _searchQuery = '';
+  File? _selectedFile;
+
+  // Tema de física seleccionado
+  String? _selectedPhysicsTopic;
 
   @override
   void initState() {
     super.initState();
     _loadDocuments();
   }
+
+  // MÉTODOS PRINCIPALES
 
   Future<void> _loadDocuments() async {
     setState(() {
@@ -40,11 +54,13 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
       final documents = await _documentService.getDocuments();
       setState(() {
         _documents = documents;
-        _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _error = e.toString();
+      });
+    } finally {
+      setState(() {
         _isLoading = false;
       });
     }
@@ -53,14 +69,11 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
   Future<void> _pickFile() async {
     try {
       final file = await _documentService.pickDocument();
-      if (file != null) {
-        setState(() {
-          _selectedFile = file;
-          _titleController.text = file.path.split('/').last.split('.').first;
-        });
-      }
+      setState(() {
+        _selectedFile = file;
+      });
     } catch (e) {
-      _showError('Error al seleccionar archivo: $e');
+      _showError('Error seleccionando archivo: $e');
     }
   }
 
@@ -77,42 +90,108 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
 
     setState(() {
       _isUploading = true;
-      _error = null;
     });
 
     try {
+      // Subir documento
       final result = await _documentService.uploadDocument(_selectedFile!);
 
-      if (result.success) {
-        // Actualizar título y tags si es necesario
-        if (result.document != null) {
-          final tags =
-              _tagsController.text
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .where((tag) => tag.isNotEmpty)
-                  .toList();
+      if (result.success && result.document != null) {
+        // Analizar contenido de física
+        String? extractedText;
+        try {
+          extractedText = await _parser.extractText(_selectedFile!);
+        } catch (e) {
+          print('Error extrayendo texto: $e');
+        }
 
-          if (_titleController.text.trim() != result.document!.fileName ||
-              tags.isNotEmpty) {
-            await _documentService.updateDocument(result.document!.id, {
-              'title': _titleController.text.trim(),
-              'tags': tags,
-            });
+        // Preparar tags
+        final tags =
+            _tagsController.text
+                .split(',')
+                .map((tag) => tag.trim())
+                .where((tag) => tag.isNotEmpty)
+                .toList();
+
+        // Agregar tema de física seleccionado como tag
+        if (_selectedPhysicsTopic != null) {
+          tags.add(_selectedPhysicsTopic!.toLowerCase());
+        }
+
+        // Análisis con IA de física
+        Map<String, dynamic>? physicsAnalysis;
+        if (extractedText != null && extractedText.isNotEmpty) {
+          try {
+            physicsAnalysis = await _aiService.analyzePhysicsDocument(
+              extractedText,
+            );
+
+            // Agregar tags sugeridos de física
+            if (physicsAnalysis != null &&
+                physicsAnalysis['suggestedTags'] != null) {
+              final suggestedTags = List<String>.from(
+                physicsAnalysis['suggestedTags'],
+              );
+              tags.addAll(suggestedTags);
+            }
+          } catch (e) {
+            print('Error en análisis de IA: $e');
           }
         }
 
-        _showSuccess('Documento subido exitosamente');
+        // Actualizar documento con metadatos de física
+        await _documentService.updateDocument(result.document!.id, {
+          'title': _titleController.text.trim(),
+          'tags': tags.toSet().toList(), // Eliminar duplicados
+          'extractedText': extractedText,
+          'physicsAnalysis': physicsAnalysis,
+          'physicsTopic': _selectedPhysicsTopic,
+        });
+
+        _showSuccess('Documento de física subido exitosamente');
         _clearForm();
         _loadDocuments();
       } else {
-        _showError(result.error ?? 'Error al subir documento');
+        _showError(result.error ?? 'Error desconocido');
       }
     } catch (e) {
       _showError('Error: $e');
     } finally {
       setState(() {
         _isUploading = false;
+      });
+    }
+  }
+
+  void _clearForm() {
+    setState(() {
+      _selectedFile = null;
+      _titleController.clear();
+      _tagsController.clear();
+      _selectedPhysicsTopic = null;
+    });
+  }
+
+  Future<void> _searchDocuments() async {
+    if (_searchQuery.trim().isEmpty) {
+      _loadDocuments();
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final documents = await _documentService.searchDocuments(_searchQuery);
+      setState(() {
+        _documents = documents;
+      });
+    } catch (e) {
+      _showError('Error en búsqueda: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
@@ -131,10 +210,10 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancelar'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 child: const Text('Eliminar'),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
               ),
             ],
           ),
@@ -147,7 +226,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
           _showSuccess('Documento eliminado');
           _loadDocuments();
         } else {
-          _showError('Error al eliminar documento');
+          _showError('Error eliminando documento');
         }
       } catch (e) {
         _showError('Error: $e');
@@ -155,36 +234,135 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     }
   }
 
-  Future<void> _searchDocuments() async {
-    if (_searchQuery.trim().isEmpty) {
-      _loadDocuments();
+  // MÉTODOS DE IA PARA FÍSICA
+
+  Future<void> _generateExercises() async {
+    if (_selectedPhysicsTopic == null) {
+      _showError('Por favor selecciona un tema de física');
       return;
     }
 
     setState(() {
-      _isLoading = true;
+      _isUploading = true;
     });
 
     try {
-      final documents = await _documentService.searchDocuments(_searchQuery);
-      setState(() {
-        _documents = documents;
-        _isLoading = false;
-      });
+      final exercises = await _aiService.generateExercises(
+        topic: _selectedPhysicsTopic!,
+        difficulty: 'intermedio',
+        quantity: 5,
+      );
+
+      if (exercises != null) {
+        _showAIContentDialog('Ejercicios de $_selectedPhysicsTopic', exercises);
+      } else {
+        _showError('Error generando ejercicios');
+      }
     } catch (e) {
+      _showError('Error: $e');
+    } finally {
       setState(() {
-        _error = e.toString();
-        _isLoading = false;
+        _isUploading = false;
       });
     }
   }
 
-  void _clearForm() {
+  Future<void> _generateTheory() async {
+    if (_selectedPhysicsTopic == null) {
+      _showError('Por favor selecciona un tema de física');
+      return;
+    }
+
     setState(() {
-      _selectedFile = null;
-      _titleController.clear();
-      _tagsController.clear();
+      _isUploading = true;
     });
+
+    try {
+      final theory = await _aiService.generateTheory(
+        topic: _selectedPhysicsTopic!,
+        level: 'intermedio',
+      );
+
+      if (theory != null) {
+        _showAIContentDialog('Teoría de $_selectedPhysicsTopic', theory);
+      } else {
+        _showError('Error generando teoría');
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() {
+        _isUploading = false;
+      });
+    }
+  }
+
+  // Guardar contenido generado por IA
+  Future<void> _saveAIContent(String title, String content) async {
+    try {
+      // Crear archivo temporal con el contenido
+      final directory = await getTemporaryDirectory();
+      final file = File(
+        '${directory.path}/ai_generated_${DateTime.now().millisecondsSinceEpoch}.txt',
+      );
+      await file.writeAsString(content);
+
+      // Subir como documento
+      final result = await _documentService.uploadDocument(file);
+      if (result.success && result.document != null) {
+        await _documentService.updateDocument(result.document!.id, {
+          'title': title,
+          'tags': [
+            'ia-generado',
+            'fisica',
+            _selectedPhysicsTopic?.toLowerCase() ?? 'general',
+          ],
+          'extractedText': content,
+        });
+        _showSuccess('Contenido guardado como documento');
+        _loadDocuments();
+      }
+    } catch (e) {
+      _showError('Error guardando contenido: $e');
+    }
+  }
+
+  // MÉTODOS DE ANÁLISIS DE DOCUMENTOS
+
+  Future<void> _generateSummary(Document document) async {
+    try {
+      _showSuccess('Generando resumen...');
+      final summary = await _documentService.generateSummary(document.id);
+      if (summary != null) {
+        _showDocumentDialog('Resumen - ${document.title}', summary);
+      } else {
+        _showError('Error al generar resumen');
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    }
+  }
+
+  Future<void> _extractText(Document document) async {
+    try {
+      _showSuccess('Extrayendo texto...');
+      final text = await _documentService.extractText(document.id);
+      if (text != null) {
+        _showDocumentDialog('Texto extraído - ${document.title}', text);
+      } else {
+        _showError('Error al extraer texto');
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    }
+  }
+
+  // MÉTODOS DE UI
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
   }
 
   void _showError(String message) {
@@ -193,17 +371,64 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     );
   }
 
-  void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+  void _showAIContentDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 400,
+              child: SingleChildScrollView(child: Text(content)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _saveAIContent(title, content);
+                },
+                child: const Text('Guardar'),
+              ),
+            ],
+          ),
     );
   }
+
+  void _showDocumentDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text(title),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 300,
+              child: SingleChildScrollView(child: Text(content)),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  // BUILD METHOD
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Documentos'),
+        title: const Text('Documentos de Física'),
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -216,6 +441,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
           // Sección de subida
           Card(
             margin: const EdgeInsets.all(16),
+            elevation: 4,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -236,13 +462,14 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey.shade50,
                       ),
                       child: Column(
                         children: [
                           Icon(
                             Icons.cloud_upload,
                             size: 48,
-                            color: Colors.grey.shade600,
+                            color: Colors.blue.shade600,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -250,8 +477,15 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                                 ? 'Toca para seleccionar archivo'
                                 : _selectedFile!.path.split('/').last,
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color:
+                                  _selectedFile == null
+                                      ? Colors.grey.shade600
+                                      : Colors.blue.shade700,
                               fontSize: 16,
+                              fontWeight:
+                                  _selectedFile != null
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                             ),
                           ),
                           if (_selectedFile != null) ...[
@@ -277,7 +511,32 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Título del documento',
                       border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.title),
                     ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Selector de tema de física
+                  DropdownButtonFormField<String>(
+                    value: _selectedPhysicsTopic,
+                    decoration: const InputDecoration(
+                      labelText: 'Tema de Física',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.science),
+                    ),
+                    items:
+                        AppConstants.physicsTopics.map((topic) {
+                          return DropdownMenuItem(
+                            value: topic,
+                            child: Text(topic),
+                          );
+                        }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedPhysicsTopic = value;
+                      });
+                    },
                   ),
 
                   const SizedBox(height: 16),
@@ -288,20 +547,81 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Tags (separados por comas)',
                       border: OutlineInputBorder(),
-                      helperText: 'Ej: física, matemáticas, ejercicios',
+                      prefixIcon: Icon(Icons.tag),
+                      helperText: 'Ej: problemas, termodinámica, nivel-básico',
                     ),
                   ),
 
                   const SizedBox(height: 16),
 
-                  // Botón de subir
-                  SizedBox(
-                    width: double.infinity,
-                    child: CustomButton(
-                      text: _isUploading ? 'Subiendo...' : 'Subir documento',
-                      onPressed: _isUploading ? null : _uploadDocument,
-                      isLoading: _isUploading,
-                    ),
+                  // Botones de acción
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isUploading ? null : _uploadDocument,
+                          icon:
+                              _isUploading
+                                  ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                  : const Icon(Icons.upload_file),
+                          label: Text(
+                            _isUploading ? 'Subiendo...' : 'Subir documento',
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Sección de generación con IA
+                  const Divider(height: 32),
+                  const Text(
+                    'Generar contenido con IA',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              _selectedPhysicsTopic == null || _isUploading
+                                  ? null
+                                  : _generateExercises,
+                          icon: const Icon(Icons.quiz),
+                          label: const Text('Ejercicios'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed:
+                              _selectedPhysicsTopic == null || _isUploading
+                                  ? null
+                                  : _generateTheory,
+                          icon: const Icon(Icons.book),
+                          label: const Text('Teoría'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -313,7 +633,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Buscar documentos...',
+                hintText: 'Buscar documentos de física...',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(25),
@@ -351,7 +671,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
 
   Widget _buildDocumentsList() {
     if (_isLoading) {
-      return const Center(child: LoadingIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
@@ -426,6 +746,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
   Widget _buildDocumentCard(Document document) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      elevation: 2,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: _getFileTypeColor(document.fileType),
@@ -438,6 +759,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 4),
             Text(document.fileName),
             const SizedBox(height: 4),
             Row(
@@ -545,34 +867,6 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         onTap: () => _showDocumentDetails(document),
       ),
     );
-  }
-
-  Future<void> _generateSummary(Document document) async {
-    try {
-      _showSuccess('Generando resumen...');
-      final summary = await _documentService.generateSummary(document.id);
-      if (summary != null) {
-        _showDocumentDialog('Resumen - ${document.title}', summary);
-      } else {
-        _showError('Error al generar resumen');
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    }
-  }
-
-  Future<void> _extractText(Document document) async {
-    try {
-      _showSuccess('Extrayendo texto...');
-      final text = await _documentService.extractText(document.id);
-      if (text != null) {
-        _showDocumentDialog('Texto extraído - ${document.title}', text);
-      } else {
-        _showError('Error al extraer texto');
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    }
   }
 
   void _showDocumentDetails(Document document) {
@@ -704,22 +998,7 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     );
   }
 
-  void _showDocumentDialog(String title, String content) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(title),
-            content: SingleChildScrollView(child: Text(content)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          ),
-    );
-  }
+  // MÉTODOS DE UTILIDAD
 
   Color _getFileTypeColor(String fileType) {
     switch (fileType.toLowerCase()) {
@@ -765,6 +1044,8 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         return Colors.green;
       case DocumentStatus.error:
         return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -776,6 +1057,8 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
         return 'Procesado';
       case DocumentStatus.error:
         return 'Error';
+      default:
+        return 'Desconocido';
     }
   }
 
@@ -783,21 +1066,14 @@ class _DocumentUploadScreenState extends State<DocumentUploadScreen> {
     final now = DateTime.now();
     final difference = now.difference(date);
 
-    if (difference.inDays == 0) {
-      return 'Hoy';
-    } else if (difference.inDays == 1) {
-      return 'Ayer';
-    } else if (difference.inDays < 7) {
-      return 'Hace ${difference.inDays} días';
-    } else {
+    if (difference.inDays >= 1) {
       return '${date.day}/${date.month}/${date.year}';
+    } else if (difference.inHours >= 1) {
+      return '${difference.inHours} horas atrás';
+    } else if (difference.inMinutes >= 1) {
+      return '${difference.inMinutes} minutos atrás';
+    } else {
+      return 'hace unos segundos';
     }
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _tagsController.dispose();
-    super.dispose();
   }
 }

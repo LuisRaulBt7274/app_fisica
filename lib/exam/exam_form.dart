@@ -19,8 +19,6 @@ class ExamFormController extends GetxController {
   final RxString documentName = ''.obs;
 
   // Form data
-  // selectedSubject ahora siempre será 'Física'
-  final RxString selectedSubject = AppConstants.subjects.first.obs;
   final RxString selectedDifficulty = AppConstants.difficultyLevels.first.obs;
   final RxInt questionCount = 10.obs;
   final RxInt timeLimit = 60.obs;

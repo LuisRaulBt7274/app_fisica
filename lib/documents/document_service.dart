@@ -8,7 +8,7 @@ import 'document_parser.dart';
 import '../app/constants.dart';
 
 class DocumentService {
-  static const String _baseUrl = AppConstants.apiBaseUrl;
+  static const String _baseUrl = AppConstants.supabaseUrl;
   final DocumentParser _parser = DocumentParser();
 
   // Obtener lista de documentos

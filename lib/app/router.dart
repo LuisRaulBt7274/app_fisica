@@ -25,7 +25,9 @@ class AppRouter {
 
       // Lista de rutas que no requieren autenticación
       final publicRoutes = ['/login', '/signup'];
-      final isPublicRoute = publicRoutes.contains(state.location);
+      final currentPath =
+          state.uri.path; // ← CAMBIO AQUÍ: usar uri.path en lugar de location
+      final isPublicRoute = publicRoutes.contains(currentPath);
 
       // Si no está autenticado y trata de acceder a una ruta protegida
       if (!isLoggedIn && !isPublicRoute) {

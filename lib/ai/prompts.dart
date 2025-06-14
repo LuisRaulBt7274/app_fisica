@@ -5,66 +5,77 @@ class PromptTemplates {
     required String topics,
   }) {
     return '''
-Actúa como un experto profesor de Física. Crea un examen de nivel $difficulty con $questionCount preguntas sobre los siguientes temas: $topics.
+Actúa como un experto profesor de Física. Crea un examen de nivel $difficulty con $questionCount preguntas sobre los siguientes temas de FÍSICA: $topics.
 
 Instrucciones:
-- Incluye diferentes tipos de preguntas: opción múltiple, verdadero/falso, respuesta corta y desarrollo
-- Proporciona las respuestas correctas al final
+- EXCLUSIVAMENTE temas de Física (mecánica, termodinámica, electromagnetismo, óptica, física moderna, etc.)
+- Incluye diferentes tipos de preguntas: opción múltiple, verdadero/falso, problemas numéricos y desarrollo teórico
+- Proporciona las respuestas correctas con unidades SI cuando aplique
 - Asegúrate de que las preguntas sean apropiadas para el nivel $difficulty
-- Incluye explicaciones breves para las respuestas
+- Incluye fórmulas físicas relevantes y explicaciones conceptuales
 
 Formato de respuesta:
-## EXAMEN DE Física
+## EXAMEN DE FÍSICA - Nivel $difficulty
 
 ### Pregunta 1 (Opción múltiple)
-[Pregunta]
-a) [Opción A]
-b) [Opción B]
-c) [Opción C]
-d) [Opción D]
+[Pregunta de física con datos numéricos si aplica]
+a) [Opción A con unidades]
+b) [Opción B con unidades]
+c) [Opción C con unidades]
+d) [Opción D con unidades]
 
 [Continúa con el resto de preguntas...]
 
-## RESPUESTAS
-1. [Respuesta correcta] - [Breve explicación]
+## RESPUESTAS Y SOLUCIONES
+1. [Respuesta correcta] - [Explicación con fórmulas y procedimiento]
 [Continúa con el resto de respuestas...]
 ''';
   }
 
-  static String exerciseSolverPrompt({
-    required String exercise,
-    required String subject,
-  }) {
+  static String exerciseSolverPrompt({required String exercise}) {
     return '''
-Actúa como un tutor experto en Física. Ayuda a resolver el siguiente ejercicio paso a paso:
+Actúa como un tutor experto en Física. Resuelve el siguiente problema de física paso a paso:
 
-EJERCICIO:
+PROBLEMA DE FÍSICA:
 $exercise
 
 Instrucciones:
-- Explica cada paso detalladamente
-- Muestra todas las fórmulas y cálculos necesarios
-- Proporciona consejos útiles para problemas similares
-- Si hay gráficos o diagramas necesarios, descríbelos claramente
-- Verifica la respuesta final
+- Identifica las variables físicas conocidas y desconocidas
+- Selecciona las fórmulas físicas apropiadas
+- Realiza los cálculos paso a paso con unidades SI
+- Dibuja diagramas cuando sea necesario (descríbelos en texto)
+- Verifica que el resultado tenga sentido físico
+- Incluye análisis dimensional
 
 Formato de respuesta:
-## SOLUCIÓN PASO A PASO
+## SOLUCIÓN DEL PROBLEMA DE FÍSICA
 
-### Paso 1: [Nombre del paso]
-[Explicación detallada]
+### Datos:
+- [Variable 1]: [valor] [unidad]
+- [Variable 2]: [valor] [unidad]
 
-### Paso 2: [Nombre del paso]
-[Explicación detallada]
+### Incógnita:
+- [Variable a encontrar]: ? [unidad esperada]
 
-[Continúa con los pasos necesarios...]
+### Fórmulas a usar:
+- [Fórmula 1]: [ecuación]
+- [Fórmula 2]: [ecuación]
+
+### Paso 1: Análisis del problema
+[Explicación del fenómeno físico]
+
+### Paso 2: Aplicación de fórmulas
+[Sustitución de valores]
+
+### Paso 3: Cálculo
+[Operaciones matemáticas]
 
 ### Respuesta Final:
-[Respuesta con unidades si aplica]
+[Resultado con unidades] 
 
-### Consejos:
-- [Consejo 1]
-- [Consejo 2]
+### Verificación:
+- Análisis dimensional: [verificación]
+- Sentido físico: [explicación]
 ''';
   }
 
@@ -74,25 +85,25 @@ Formato de respuesta:
     required String difficulty,
   }) {
     return '''
-Crea $cardCount flashcards sobre el tema: $topic con nivel de dificultad $difficulty.
+Crea $cardCount flashcards sobre el tema de FÍSICA: $topic con nivel de dificultad $difficulty.
 
 Instrucciones:
-- Cada flashcard debe tener una pregunta/concepto en el frente y la respuesta/explicación en el reverso
-- Las preguntas deben ser claras y concisas
-- Las respuestas deben ser completas pero fáciles de memorizar
-- Incluye ejemplos cuando sea apropiado
-- Varía el tipo de preguntas (definiciones, ejemplos, aplicaciones, etc.)
+- Enfócate ÚNICAMENTE en conceptos de física
+- Incluye fórmulas físicas importantes
+- Menciona unidades SI correspondientes
+- Incluye constantes físicas relevantes
+- Varía entre definiciones, fórmulas, aplicaciones y conceptos
 
 Formato de respuesta:
-## FLASHCARDS: $topic
+## FLASHCARDS DE FÍSICA: $topic
 
 ### Tarjeta 1
-**Frente:** [Pregunta o concepto]
-**Reverso:** [Respuesta o explicación]
+**Frente:** [Pregunta o concepto físico]
+**Reverso:** [Respuesta con fórmulas y unidades si aplica]
 
 ### Tarjeta 2
-**Frente:** [Pregunta o concepto]
-**Reverso:** [Respuesta o explicación]
+**Frente:** [Pregunta o concepto físico]
+**Reverso:** [Respuesta con fórmulas y unidades si aplica]
 
 [Continúa con el resto de tarjetas...]
 ''';
@@ -103,39 +114,59 @@ Formato de respuesta:
     required String analysisType,
   }) {
     return '''
-Analiza el siguiente documento y proporciona un análisis de tipo: $analysisType
+Analiza el siguiente documento de FÍSICA y proporciona un análisis de tipo: $analysisType
 
-DOCUMENTO:
+DOCUMENTO DE FÍSICA:
 $content
 
 Instrucciones según el tipo de análisis:
-- Resumen: Crea un resumen conciso de los puntos principales
-- Conceptos clave: Identifica y explica los conceptos más importantes
-- Preguntas de estudio: Genera preguntas que ayuden a estudiar el material
-- Puntos importantes: Lista los elementos más relevantes para recordar
+- Resumen: Extrae conceptos físicos principales, fórmulas clave y aplicaciones
+- Conceptos clave: Identifica leyes físicas, principios y teorías fundamentales
+- Preguntas de estudio: Genera preguntas sobre fenómenos físicos y problemas numéricos
+- Puntos importantes: Lista fórmulas esenciales, constantes y relaciones físicas
 
-Proporciona un análisis completo y estructurado que sea útil para el estudio.
+IMPORTANTE: Enfócate ÚNICAMENTE en contenido relacionado con física.
 ''';
   }
 
+  static String conceptExplanationPrompt({
+    required String concept,
+    required String level,
+  }) {
+    return '''
+Explica el concepto de FÍSICA "$concept" para un nivel académico $level.
+
+Instrucciones:
+- Proporciona definición física precisa
+- Incluye fórmulas matemáticas relevantes
+- Menciona unidades SI apropiadas
+- Da ejemplos de aplicaciones en la vida real
+- Explica el fenómeno físico subyacente
+- Incluye constantes físicas si son relevantes
+
+La explicación debe ser científicamente precisa y apropiada para el nivel $level.
+''';
+  }
+
+  // Métodos con documentos mantienen la misma estructura pero con enfoque en física
   static String examFromDocumentPrompt({
     required String content,
     required String difficulty,
     required int questionCount,
   }) {
     return '''
-Basándote en el siguiente documento, crea un examen de nivel $difficulty con $questionCount preguntas:
+Basándote en el siguiente documento de FÍSICA, crea un examen de nivel $difficulty con $questionCount preguntas:
 
-DOCUMENTO:
+DOCUMENTO DE FÍSICA:
 $content
 
 Instrucciones:
-- Las preguntas deben basarse únicamente en el contenido del documento
-- Incluye diferentes tipos de preguntas
-- Asegúrate de cubrir los puntos más importantes del documento
-- Proporciona respuestas con explicaciones
+- Las preguntas deben basarse únicamente en conceptos físicos del documento
+- Incluye problemas numéricos con datos del documento
+- Asegúrate de incluir fórmulas físicas mencionadas
+- Proporciona respuestas con procedimientos completos
 
-Sigue el formato estándar de examen con preguntas numeradas y sección de respuestas al final.
+Sigue el formato estándar de examen de física con preguntas numeradas y sección de respuestas.
 ''';
   }
 
@@ -144,37 +175,18 @@ Sigue el formato estándar de examen con preguntas numeradas y sección de respu
     required int cardCount,
   }) {
     return '''
-Crea $cardCount flashcards basadas en el siguiente documento:
+Crea $cardCount flashcards de FÍSICA basadas en el siguiente documento:
 
-DOCUMENTO:
+DOCUMENTO DE FÍSICA:
 $content
 
 Instrucciones:
-- Extrae los conceptos más importantes del documento
-- Crea preguntas que ayuden a memorizar la información clave
-- Las respuestas deben ser precisas y basadas en el documento
-- Incluye definiciones, fechas, nombres importantes, etc.
+- Extrae conceptos físicos más importantes
+- Incluye fórmulas y leyes físicas del documento
+- Menciona unidades y constantes relevantes
+- Crea preguntas sobre aplicaciones físicas
 
-Usa el formato estándar de flashcards con frente y reverso claramente marcados.
-''';
-  }
-
-  static String conceptExplanationPrompt({
-    required String concept,
-    required String subject,
-    required String level,
-  }) {
-    return '''
-Explica el concepto "$concept" en el área de Física para un nivel $level.
-
-Instrucciones:
-- Proporciona una explicación clara y comprensible
-- Incluye ejemplos prácticos cuando sea posible
-- Menciona aplicaciones del concepto
-- Si es apropiado, incluye fórmulas o diagramas descritos en texto
-- Ajusta el nivel de complejidad según el nivel especificado
-
-La explicación debe ser educativa y fácil de entender para el nivel indicado.
+Usa el formato estándar de flashcards enfocadas en física.
 ''';
   }
 }

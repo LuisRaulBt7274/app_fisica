@@ -1,15 +1,19 @@
-// lib/tools/simulators_screen.dart
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../app/constants.dart'; // To access AppConstants.simulatorUrls
+import '../app/constants.dart';
 
 class SimulatorsScreen extends StatelessWidget {
   const SimulatorsScreen({super.key});
 
   Future<void> _launchURL(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      throw 'Could not launch $url';
+    try {
+      final uri = Uri.parse(url);
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw 'No se pudo abrir $url';
+      }
+    } catch (e) {
+      // Manejar error de forma silenciosa o mostrar snackbar
+      debugPrint('Error al abrir URL: $e');
     }
   }
 
@@ -21,24 +25,39 @@ class SimulatorsScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body:
-          AppConstants.simulatorUrls.isEmpty
+          AppConstants.physicsSimulatorUrls.isEmpty
               ? const Center(
                 child: Padding(
                   padding: EdgeInsets.all(16.0),
-                  child: Text(
-                    'No hay simuladores configurados actualmente. ¡Vuelve pronto para ver más!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.science, size: 80, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'No hay simuladores configurados',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '¡Vuelve pronto para ver simuladores interactivos de física!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ],
                   ),
                 ),
               )
               : ListView.builder(
                 padding: const EdgeInsets.all(16.0),
-                itemCount: AppConstants.simulatorUrls.length,
+                itemCount: AppConstants.physicsSimulatorUrls.length,
                 itemBuilder: (context, index) {
-                  final entry = AppConstants.simulatorUrls.entries.elementAt(
-                    index,
-                  );
+                  final entry = AppConstants.physicsSimulatorUrls.entries
+                      .elementAt(index);
                   final simulatorName = entry.key;
                   final simulatorUrl = entry.value;
 
@@ -56,23 +75,45 @@ class SimulatorsScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              simulatorName,
-                              style: Theme.of(context).textTheme.titleLarge,
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.play_circle_outline,
+                                  color: Theme.of(context).primaryColor,
+                                  size: 30,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    simulatorName,
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Abrir simulador en el navegador externo.',
+                              'Simulaciones interactivas de física para experimentar y aprender de forma visual.',
                               style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(color: Colors.grey[600]),
                             ),
                             const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.bottomRight,
-                              child: Icon(
-                                Icons.open_in_new,
-                                color: Theme.of(context).primaryColor,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Toca para abrir',
+                                  style: TextStyle(
+                                    color: Theme.of(context).primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.open_in_new,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ],
                             ),
                           ],
                         ),

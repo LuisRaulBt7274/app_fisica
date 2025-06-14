@@ -1,8 +1,10 @@
-// lib/exam/exam_model.dart
 import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
 
+// No, no se puede quitar si usas json_serializable.
+// La línea `part 'exam_model.g.dart';` es necesaria para que el código generado por json_serializable funcione correctamente.
+// Si la quitas, obtendrás errores como "Target of URI hasn't been generated" o que no encuentra los métodos _$ExamModelFromJson, etc.
 part 'exam_model.g.dart';
 
 @JsonSerializable()

@@ -1,66 +1,94 @@
-// lib/tools/free_body_diagram_screen.dart
+// Agregar funcionalidad básica de dibujo
 import 'package:flutter/material.dart';
 
-class FreeBodyDiagramScreen extends StatelessWidget {
+class FreeBodyDiagramScreen extends StatefulWidget {
   const FreeBodyDiagramScreen({super.key});
+
+  @override
+  State<FreeBodyDiagramScreen> createState() => _FreeBodyDiagramScreenState();
+}
+
+class _FreeBodyDiagramScreenState extends State<FreeBodyDiagramScreen> {
+  List<Offset> points = [];
+  List<String> forces = ['Peso', 'Normal', 'Fricción', 'Tensión'];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Diagrama de Cuerpo Libre'),
-        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: () => setState(() => points.clear()),
+          ),
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveDiagram),
+        ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.line_weight,
-                size: 80,
-                color: Theme.of(context).primaryColor.withOpacity(0.6),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Crea tus Diagramas de Cuerpo Libre',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Aquí podrás dibujar fuerzas, vectores y objetos para analizar sistemas físicos. ¡La funcionalidad de dibujo interactivo estará disponible pronto!',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 32),
-              // Placeholder for the drawing canvas area
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade400, width: 1),
-                  ),
-                  child: Center(
-                    child: Text(
-                      'Área de Dibujo (Próximamente)',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontStyle: FontStyle.italic,
-                      ),
+      body: Column(
+        children: [
+          // Panel de herramientas de fuerzas
+          Container(
+            height: 80,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: forces.length,
+              itemBuilder:
+                  (context, index) => Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Chip(
+                      label: Text(forces[index]),
+                      onDeleted: () => _addForce(forces[index]),
+                      deleteIcon: const Icon(Icons.add),
                     ),
                   ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          // Área de dibujo
+          Expanded(
+            child: CustomPaint(
+              painter: DiagramPainter(points),
+              child: GestureDetector(
+                onPanUpdate: (details) {
+                  setState(() {
+                    points.add(details.localPosition);
+                  });
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  void _addForce(String force) {
+    // Implementar lógica para añadir fuerzas
+  }
+
+  void _saveDiagram() {
+    // Implementar guardado del diagrama
+  }
+}
+
+class DiagramPainter extends CustomPainter {
+  final List<Offset> points;
+
+  DiagramPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = Colors.blue
+          ..strokeWidth = 2.0
+          ..style = PaintingStyle.stroke;
+
+    for (int i = 0; i < points.length - 1; i++) {
+      canvas.drawLine(points[i], points[i + 1], paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
