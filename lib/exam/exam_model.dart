@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
 
-// No, no se puede quitar si usas json_serializable.
-// La línea `part 'exam_model.g.dart';` es necesaria para que el código generado por json_serializable funcione correctamente.
-// Si la quitas, obtendrás errores como "Target of URI hasn't been generated" o que no encuentra los métodos _$ExamModelFromJson, etc.
 part 'exam_model.g.dart';
 
 @JsonSerializable()
@@ -84,18 +81,12 @@ class ExamModel extends Equatable {
 
   // Métodos de utilidad
   bool get hasTimeLimit => timeLimit != null && timeLimit! > 0;
-
   double get scorePercentage => score != null ? score! / 100.0 : 0.0;
-
   String get formattedScore => score != null ? '$score%' : 'N/A';
-
   Duration? get timeLimitDuration =>
       timeLimit != null ? Duration(minutes: timeLimit!) : null;
-
   int get answeredQuestions => questions.where((q) => q.hasUserAnswer).length;
-
   int get correctAnswers => questions.where((q) => q.isCorrect == true).length;
-
   bool get isFullyAnswered => answeredQuestions == questionCount;
 
   String get difficultyLevel {
@@ -106,7 +97,7 @@ class ExamModel extends Equatable {
         return '⭐⭐';
       case 'avanzado':
         return '⭐⭐⭐';
-      case 'experto':
+      case 'universitario':
         return '⭐⭐⭐⭐';
       default:
         return '⭐';
@@ -115,20 +106,20 @@ class ExamModel extends Equatable {
 
   @override
   List<Object?> get props => [
-    id,
-    title,
-    subject,
-    difficulty,
-    questionCount,
-    questions,
-    createdAt,
-    userId,
-    timeLimit,
-    isCompleted,
-    score,
-    completedAt,
-    updatedAt,
-  ];
+        id,
+        title,
+        subject,
+        difficulty,
+        questionCount,
+        questions,
+        createdAt,
+        userId,
+        timeLimit,
+        isCompleted,
+        score,
+        completedAt,
+        updatedAt,
+      ];
 }
 
 @JsonSerializable()
@@ -214,7 +205,6 @@ class ExamQuestion extends Equatable {
       final answerIndex = int.tryParse(answer);
       correct = answerIndex == correctAnswer;
     } else {
-      // Para preguntas abiertas, aquí se podría implementar lógica más compleja
       correct = answer.toLowerCase().trim() == explanation.toLowerCase().trim();
     }
 
@@ -223,15 +213,15 @@ class ExamQuestion extends Equatable {
 
   @override
   List<Object?> get props => [
-    id,
-    question,
-    options,
-    correctAnswer,
-    explanation,
-    type,
-    userAnswer,
-    isCorrect,
-  ];
+        id,
+        question,
+        options,
+        correctAnswer,
+        explanation,
+        type,
+        userAnswer,
+        isCorrect,
+      ];
 }
 
 @JsonSerializable()
@@ -288,14 +278,14 @@ class ExamSettings extends Equatable {
 
   @override
   List<Object?> get props => [
-    subject,
-    difficulty,
-    questionCount,
-    timeLimit,
-    topics,
-    questionType,
-    documentContent,
-  ];
+        subject,
+        difficulty,
+        questionCount,
+        timeLimit,
+        topics,
+        questionType,
+        documentContent,
+      ];
 }
 
 // Enums para mayor type safety
@@ -303,7 +293,7 @@ enum ExamDifficulty {
   basico('Básico'),
   intermedio('Intermedio'),
   avanzado('Avanzado'),
-  experto('Experto');
+  universitario('Universitario');
 
   const ExamDifficulty(this.displayName);
   final String displayName;

@@ -1,463 +1,484 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:go_router/go_router.dart';
+import 'exam_model.dart';
+import 'exam_service.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/loading_indicator.dart';
-import 'exam_service.dart';
-import 'exam_model.dart';
 
-class ExamController extends GetxController {
-  final ExamService _examService = ExamService();
+class ExamScreen extends StatefulWidget {
+  const ExamScreen({super.key});
 
-  var isLoading = false.obs;
-  var currentExam = Rxn<Exam>();
-  var currentQuestionIndex = 0.obs;
-  var selectedAnswers = <int, int>{}.obs;
-  var timeRemaining = 0.obs;
-  var isSubmitted = false.obs;
-  var score = 0.obs;
+  @override
+  State<ExamScreen> createState() => _ExamScreenState();
+}
 
-  void startExam(String examId) async {
-    isLoading.value = true;
-    try {
-      currentExam.value = await _examService.getExam(examId);
-      timeRemaining.value = currentExam.value?.duration ?? 0;
-      currentQuestionIndex.value = 0;
-      selectedAnswers.clear();
-      isSubmitted.value = false;
-      score.value = 0;
-      _startTimer();
-    } catch (e) {
-      Get.snackbar('Error', 'No se pudo cargar el examen');
-    } finally {
-      isLoading.value = false;
-    }
+class _ExamScreenState extends State<ExamScreen> {
+  final ExamService _examService = ExamService.instance;
+  
+  List<ExamModel> _exams = [];
+  bool _isLoading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExams();
   }
 
-  void _startTimer() {
-    if (timeRemaining.value > 0) {
-      Future.delayed(Duration(seconds: 1), () {
-        if (timeRemaining.value > 0 && !isSubmitted.value) {
-          timeRemaining.value--;
-          _startTimer();
-        } else if (timeRemaining.value == 0) {
-          submitExam();
-        }
+  Future<void> _loadExams() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final exams = await _examService.getUserExams();
+      setState(() {
+        _exams = exams;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
       });
     }
   }
 
-  void selectAnswer(int questionIndex, int answerIndex) {
-    selectedAnswers[questionIndex] = answerIndex;
-  }
-
-  void nextQuestion() {
-    if (currentQuestionIndex.value <
-        (currentExam.value?.questions.length ?? 0) - 1) {
-      currentQuestionIndex.value++;
-    }
-  }
-
-  void previousQuestion() {
-    if (currentQuestionIndex.value > 0) {
-      currentQuestionIndex.value--;
-    }
-  }
-
-  void submitExam() async {
-    isLoading.value = true;
-    try {
-      score.value = _calculateScore();
-      isSubmitted.value = true;
-
-      // Guardar resultado
-      await _examService.saveExamResult(
-        currentExam.value!.id,
-        selectedAnswers,
-        score.value,
-      );
-
-      Get.dialog(
-        AlertDialog(
-          title: Text('Examen Completado'),
-          content: Text(
-            'Tu puntuación: ${score.value}/${currentExam.value?.questions.length}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Get.back();
-                Get.back();
-              },
-              child: Text('Aceptar'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      Get.snackbar('Error', 'No se pudo enviar el examen');
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  int _calculateScore() {
-    int correct = 0;
-    for (int i = 0; i < (currentExam.value?.questions.length ?? 0); i++) {
-      if (selectedAnswers[i] == currentExam.value!.questions[i].correctAnswer) {
-        correct++;
-      }
-    }
-    return correct;
-  }
-
-  String get formattedTime {
-    int minutes = timeRemaining.value ~/ 60;
-    int seconds = timeRemaining.value % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-}
-
-class ExamScreen extends StatelessWidget {
-  final ExamController controller = Get.put(ExamController());
-  final String examId = Get.arguments as String;
-
-  ExamScreen({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
-    // Iniciar examen cuando se carga la pantalla
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.startExam(examId);
-    });
-
     return Scaffold(
       appBar: AppBar(
-        title: Text('Examen'),
-        backgroundColor: Colors.blue,
-        elevation: 0,
+        title: const Text('Exámenes de Física'),
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
         actions: [
-          Obx(
-            () => Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Center(
-                child: Text(
-                  controller.formattedTime,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color:
-                        controller.timeRemaining.value < 300
-                            ? Colors.red
-                            : Colors.white,
-                  ),
-                ),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadExams,
           ),
         ],
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return Center(child: LoadingIndicator());
-        }
-
-        if (controller.currentExam.value == null) {
-          return Center(child: Text('No se pudo cargar el examen'));
-        }
-
-        if (controller.isSubmitted.value) {
-          return _buildResultsView();
-        }
-
-        return _buildExamView();
-      }),
+      body: _buildBody(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _navigateToCreateExam(),
+        icon: const Icon(Icons.add),
+        label: const Text('Nuevo Examen'),
+        backgroundColor: Colors.blue[700],
+        foregroundColor: Colors.white,
+      ),
     );
   }
 
-  Widget _buildExamView() {
-    final exam = controller.currentExam.value!;
-    final currentQuestion =
-        exam.questions[controller.currentQuestionIndex.value];
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const LoadingIndicator(message: 'Cargando exámenes...');
+    }
 
-    return Column(
-      children: [
-        // Barra de progreso
-        Container(
-          padding: EdgeInsets.all(16),
+    if (_error != null) {
+      return _buildErrorWidget();
+    }
+
+    if (_exams.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadExams,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: _exams.length,
+        itemBuilder: (context, index) {
+          final exam = _exams[index];
+          return _buildExamCard(exam);
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorWidget() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+          const SizedBox(height: 16),
+          Text(
+            'Error al cargar exámenes',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          CustomButton(
+            text: 'Reintentar',
+            onPressed: _loadExams,
+            icon: Icons.refresh,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.quiz_outlined, size: 80, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          const Text(
+            'No tienes exámenes aún',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Crea tu primer examen de física para comenzar a estudiar',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 24),
+          CustomButton(
+            text: 'Crear Primer Examen',
+            onPressed: () => _navigateToCreateExam(),
+            icon: Icons.add,
+            backgroundColor: Colors.blue[700],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExamCard(ExamModel exam) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: InkWell(
+        onTap: () => _navigateToTakeExam(exam),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Pregunta ${controller.currentQuestionIndex.value + 1} de ${exam.questions.length}',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  Expanded(
+                    child: Text(
+                      exam.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                  Text(
-                    '${controller.selectedAnswers.length}/${exam.questions.length} respondidas',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: exam.statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: exam.statusColor),
+                    ),
+                    child: Text(
+                      exam.statusText,
+                      style: TextStyle(
+                        color: exam.statusColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              SizedBox(height: 8),
-              LinearProgressIndicator(
-                value:
-                    (controller.currentQuestionIndex.value + 1) /
-                    exam.questions.length,
-                backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildInfoChip(
+                    icon: Icons.science,
+                    label: exam.subject,
+                    color: Colors.blue,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildInfoChip(
+                    icon: Icons.signal_cellular_alt,
+                    label: exam.difficulty,
+                    color: _getDifficultyColor(exam.difficulty),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildInfoChip(
+                    icon: Icons.quiz,
+                    label: '${exam.questionCount} preguntas',
+                    color: Colors.green,
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-
-        // Pregunta actual
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          currentQuestion.question,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (currentQuestion.imageUrl != null) ...[
-                          SizedBox(height: 16),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              currentQuestion.imageUrl!,
-                              height: 200,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  height: 200,
-                                  color: Colors.grey[300],
-                                  child: Center(
-                                    child: Icon(Icons.image_not_supported),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ],
+              if (exam.hasTimeLimit) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.timer, size: 16, color: Colors.orange.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${exam.timeLimit} minutos',
+                      style: TextStyle(color: Colors.orange.shade600),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text(
+                    'Creado: ${_formatDate(exam.createdAt)}',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
                     ),
                   ),
-                ),
-
-                SizedBox(height: 16),
-
-                // Opciones de respuesta
-                ...currentQuestion.options.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  String option = entry.value;
-                  bool isSelected =
-                      controller.selectedAnswers[controller
-                          .currentQuestionIndex
-                          .value] ==
-                      index;
-
-                  return Obx(
-                    () => Container(
-                      margin: EdgeInsets.only(bottom: 8),
-                      child: InkWell(
-                        onTap:
-                            () => controller.selectAnswer(
-                              controller.currentQuestionIndex.value,
-                              index,
-                            ),
-                        child: Container(
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color:
-                                  isSelected ? Colors.blue : Colors.grey[300]!,
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            color:
-                                isSelected
-                                    ? Colors.blue.withOpacity(0.1)
-                                    : Colors.white,
-                          ),
+                  const Spacer(),
+                  PopupMenuButton<String>(
+                    onSelected: (value) => _handleMenuAction(value, exam),
+                    itemBuilder: (context) => [
+                      if (!exam.isCompleted)
+                        const PopupMenuItem(
+                          value: 'take',
                           child: Row(
                             children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color:
-                                        isSelected
-                                            ? Colors.blue
-                                            : Colors.grey[400]!,
-                                    width: 2,
-                                  ),
-                                  color:
-                                      isSelected
-                                          ? Colors.blue
-                                          : Colors.transparent,
-                                ),
-                                child:
-                                    isSelected
-                                        ? Center(
-                                          child: Icon(
-                                            Icons.check,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                        : null,
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color:
-                                        isSelected
-                                            ? Colors.blue[700]
-                                            : Colors.black87,
-                                  ),
-                                ),
-                              ),
+                              Icon(Icons.play_arrow),
+                              SizedBox(width: 8),
+                              Text('Realizar Examen'),
                             ],
                           ),
                         ),
+                      if (exam.isCompleted)
+                        const PopupMenuItem(
+                          value: 'results',
+                          child: Row(
+                            children: [
+                              Icon(Icons.assessment),
+                              SizedBox(width: 8),
+                              Text('Ver Resultados'),
+                            ],
+                          ),
+                        ),
+                      const PopupMenuItem(
+                        value: 'reset',
+                        child: Row(
+                          children: [
+                            Icon(Icons.refresh),
+                            SizedBox(width: 8),
+                            Text('Reiniciar'),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
-        ),
-
-        // Botones de navegación
-        Container(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              if (controller.currentQuestionIndex.value > 0)
-                Expanded(
-                  child: CustomButton(
-                    text: 'Anterior',
-                    onPressed: controller.previousQuestion,
-                    backgroundColor: Colors.grey[300]!,
-                    textColor: Colors.black87,
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text(
+                              'Eliminar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              if (controller.currentQuestionIndex.value > 0)
-                SizedBox(width: 16),
-              Expanded(
-                child: CustomButton(
-                  text:
-                      controller.currentQuestionIndex.value <
-                              exam.questions.length - 1
-                          ? 'Siguiente'
-                          : 'Finalizar Examen',
-                  onPressed: () {
-                    if (controller.currentQuestionIndex.value <
-                        exam.questions.length - 1) {
-                      controller.nextQuestion();
-                    } else {
-                      _showSubmitDialog();
-                    }
-                  },
-                  backgroundColor: Colors.blue,
-                ),
+                ],
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildResultsView() {
-    final exam = controller.currentExam.value!;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Icon(Icons.check_circle, size: 64, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text(
-                    'Examen Completado',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Tu puntuación: ${controller.score.value}/${exam.questions.length}',
-                    style: TextStyle(fontSize: 20, color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Porcentaje: ${((controller.score.value / exam.questions.length) * 100).toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ],
-              ),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          SizedBox(height: 24),
+  Color _getDifficultyColor(String difficulty) {
+    switch (difficulty.toLowerCase()) {
+      case 'básico':
+        return Colors.green;
+      case 'intermedio':
+        return Colors.orange;
+      case 'avanzado':
+        return Colors.red;
+      case 'universitario':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
 
-          CustomButton(
-            text: 'Volver al Inicio',
-            onPressed: () => Get.back(),
-            backgroundColor: Colors.blue,
+  void _navigateToCreateExam() async {
+    final result = await context.push('/exam/create');
+    if (result != null) {
+      _loadExams(); // Recargar la lista si se creó un examen
+    }
+  }
+
+  void _navigateToTakeExam(ExamModel exam) {
+    // Aquí navegarías a la pantalla de realizar examen
+    // context.push('/exam/take/${exam.id}');
+    _showComingSoon('Realizar Examen');
+  }
+
+  void _handleMenuAction(String action, ExamModel exam) {
+    switch (action) {
+      case 'take':
+        _navigateToTakeExam(exam);
+        break;
+      case 'results':
+        _showComingSoon('Ver Resultados');
+        break;
+      case 'reset':
+        _showResetDialog(exam);
+        break;
+      case 'delete':
+        _showDeleteDialog(exam);
+        break;
+    }
+  }
+
+  void _showResetDialog(ExamModel exam) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reiniciar Examen'),
+        content: Text(
+          '¿Estás seguro de que quieres reiniciar "${exam.title}"? '
+          'Se perderán todas las respuestas guardadas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _examService.resetExam(exam.id);
+                _loadExams();
+                _showSuccess('Examen reiniciado');
+              } catch (e) {
+                _showError('Error al reiniciar: $e');
+              }
+            },
+            child: const Text('Reiniciar'),
           ),
         ],
       ),
     );
   }
 
-  void _showSubmitDialog() {
-    Get.dialog(
-      AlertDialog(
-        title: Text('Finalizar Examen'),
+  void _showDeleteDialog(ExamModel exam) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Examen'),
         content: Text(
-          '¿Estás seguro de que quieres finalizar el examen?\n\n'
-          'Preguntas respondidas: ${controller.selectedAnswers.length}/${controller.currentExam.value?.questions.length}\n'
-          'Tiempo restante: ${controller.formattedTime}',
+          '¿Estás seguro de que quieres eliminar "${exam.title}"? '
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              controller.submitExam();
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _examService.deleteExam(exam.id);
+                _loadExams();
+                _showSuccess('Examen eliminado');
+              } catch (e) {
+                _showError('Error al eliminar: $e');
+              }
             },
-            child: Text('Finalizar'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
     );
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature - Próximamente disponible'),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
