@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../app/constants.dart';
@@ -51,18 +52,16 @@ class AuthService {
   // Sign in with Google
   Future<AuthResponse> signInWithGoogle() async {
     try {
-      // Sign in with Google
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         throw AuthException('Inicio de sesión con Google cancelado');
       }
-
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
       // Sign in to Supabase with Google tokens
       final response = await _supabase.auth.signInWithIdToken(
-        provider: Provider.google,
+        provider: OAuthProvider.google,
         idToken: googleAuth.idToken!,
         accessToken: googleAuth.accessToken,
       );
@@ -76,6 +75,7 @@ class AuthService {
   }
 
   // Send password reset email
+  // En auth_service.dart - implementar la función faltante
   Future<void> resetPassword(String email) async {
     try {
       await _supabase.auth.resetPasswordForEmail(email);

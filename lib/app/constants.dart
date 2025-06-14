@@ -51,12 +51,8 @@ class AppConstants {
 
   // URLs for simulators
   static const Map<String, String> simulatorUrls = {
-    'PhET Physics':
-        'https://phet.colorado.edu/sims/html/forces-and-motion-basics/latest/forces-and-motion-basics_en.html',
-    'Chemistry Lab':
-        'https://phet.colorado.edu/sims/html/ph-scale/latest/ph-scale_en.html',
-    'Math Graphing': 'https://www.desmos.com/calculator',
-    'Biology Cell':
-        'https://phet.colorado.edu/sims/html/gene-expression-essentials/latest/gene-expression-essentials_en.html',
+    'Physics Simulations':
+        'https://phet.colorado.edu/en/simulations/filter?subjects=physics&type=html',
+    'Math Games': 'https://www.mathplayground.com/',
   };
 }

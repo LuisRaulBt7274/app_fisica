@@ -1,154 +1,339 @@
-class ExamModel {
+// lib/exam/exam_model.dart
+import 'package:flutter/material.dart';
+import 'package:equatable/equatable.dart';
+import 'package:json_annotation/json_annotation.dart';
+
+part 'exam_model.g.dart';
+
+@JsonSerializable()
+class ExamModel extends Equatable {
   final String id;
   final String title;
   final String subject;
   final String difficulty;
-  final List<Question> questions;
-  final List<Answer> answers;
+  @JsonKey(name: 'question_count')
+  final int questionCount;
+  final List<ExamQuestion> questions;
+  @JsonKey(name: 'created_at')
   final DateTime createdAt;
+  @JsonKey(name: 'user_id')
   final String userId;
+  @JsonKey(name: 'time_limit')
+  final int? timeLimit;
+  @JsonKey(name: 'is_completed')
+  final bool isCompleted;
+  final int? score;
+  @JsonKey(name: 'completed_at')
+  final DateTime? completedAt;
+  @JsonKey(name: 'updated_at')
+  final DateTime? updatedAt;
 
-  ExamModel({
+  const ExamModel({
     required this.id,
     required this.title,
     required this.subject,
     required this.difficulty,
+    required this.questionCount,
     required this.questions,
-    required this.answers,
     required this.createdAt,
     required this.userId,
+    this.timeLimit,
+    this.isCompleted = false,
+    this.score,
+    this.completedAt,
+    this.updatedAt,
   });
 
-  factory ExamModel.fromJson(Map<String, dynamic> json) {
+  factory ExamModel.fromJson(Map<String, dynamic> json) =>
+      _$ExamModelFromJson(json);
+  Map<String, dynamic> toJson() => _$ExamModelToJson(this);
+
+  ExamModel copyWith({
+    String? id,
+    String? title,
+    String? subject,
+    String? difficulty,
+    int? questionCount,
+    List<ExamQuestion>? questions,
+    DateTime? createdAt,
+    String? userId,
+    int? timeLimit,
+    bool? isCompleted,
+    int? score,
+    DateTime? completedAt,
+    DateTime? updatedAt,
+  }) {
     return ExamModel(
-      id: json['id'],
-      title: json['title'],
-      subject: json['subject'],
-      difficulty: json['difficulty'],
-      questions:
-          (json['questions'] as List).map((q) => Question.fromJson(q)).toList(),
-      answers:
-          (json['answers'] as List).map((a) => Answer.fromJson(a)).toList(),
-      createdAt: DateTime.parse(json['created_at']),
-      userId: json['user_id'],
+      id: id ?? this.id,
+      title: title ?? this.title,
+      subject: subject ?? this.subject,
+      difficulty: difficulty ?? this.difficulty,
+      questionCount: questionCount ?? this.questionCount,
+      questions: questions ?? this.questions,
+      createdAt: createdAt ?? this.createdAt,
+      userId: userId ?? this.userId,
+      timeLimit: timeLimit ?? this.timeLimit,
+      isCompleted: isCompleted ?? this.isCompleted,
+      score: score ?? this.score,
+      completedAt: completedAt ?? this.completedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'subject': subject,
-      'difficulty': difficulty,
-      'questions': questions.map((q) => q.toJson()).toList(),
-      'answers': answers.map((a) => a.toJson()).toList(),
-      'created_at': createdAt.toIso8601String(),
-      'user_id': userId,
-    };
+  // Métodos de utilidad
+  bool get hasTimeLimit => timeLimit != null && timeLimit! > 0;
+
+  double get scorePercentage => score != null ? score! / 100.0 : 0.0;
+
+  String get formattedScore => score != null ? '$score%' : 'N/A';
+
+  Duration? get timeLimitDuration =>
+      timeLimit != null ? Duration(minutes: timeLimit!) : null;
+
+  int get answeredQuestions => questions.where((q) => q.hasUserAnswer).length;
+
+  int get correctAnswers => questions.where((q) => q.isCorrect == true).length;
+
+  bool get isFullyAnswered => answeredQuestions == questionCount;
+
+  String get difficultyLevel {
+    switch (difficulty.toLowerCase()) {
+      case 'básico':
+        return '⭐';
+      case 'intermedio':
+        return '⭐⭐';
+      case 'avanzado':
+        return '⭐⭐⭐';
+      case 'experto':
+        return '⭐⭐⭐⭐';
+      default:
+        return '⭐';
+    }
   }
+
+  @override
+  List<Object?> get props => [
+    id,
+    title,
+    subject,
+    difficulty,
+    questionCount,
+    questions,
+    createdAt,
+    userId,
+    timeLimit,
+    isCompleted,
+    score,
+    completedAt,
+    updatedAt,
+  ];
 }
 
-class Question {
-  final int number;
-  final String type; // 'multiple_choice', 'true_false', 'short_answer', 'essay'
-  final String question;
-  final List<String>? options; // Para preguntas de opción múltiple
-  final String? correctAnswer;
-
-  Question({
-    required this.number,
-    required this.type,
-    required this.question,
-    this.options,
-    this.correctAnswer,
-  });
-
-  factory Question.fromJson(Map<String, dynamic> json) {
-    return Question(
-      number: json['number'],
-      type: json['type'],
-      question: json['question'],
-      options:
-          json['options'] != null ? List<String>.from(json['options']) : null,
-      correctAnswer: json['correct_answer'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'number': number,
-      'type': type,
-      'question': question,
-      'options': options,
-      'correct_answer': correctAnswer,
-    };
-  }
-}
-
-class Answer {
-  final int questionNumber;
-  final String answer;
-  final String explanation;
-
-  Answer({
-    required this.questionNumber,
-    required this.answer,
-    required this.explanation,
-  });
-
-  factory Answer.fromJson(Map<String, dynamic> json) {
-    return Answer(
-      questionNumber: json['question_number'],
-      answer: json['answer'],
-      explanation: json['explanation'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'question_number': questionNumber,
-      'answer': answer,
-      'explanation': explanation,
-    };
-  }
-}
-
-class ExamResult {
+@JsonSerializable()
+class ExamQuestion extends Equatable {
   final String id;
-  final String examId;
-  final String userId;
-  final Map<int, String> userAnswers;
-  final double score;
-  final DateTime completedAt;
+  final String question;
+  final List<String> options;
+  @JsonKey(name: 'correct_answer')
+  final int correctAnswer;
+  final String explanation;
+  final String type;
+  @JsonKey(name: 'user_answer')
+  final String? userAnswer;
+  @JsonKey(name: 'is_correct')
+  final bool? isCorrect;
 
-  ExamResult({
-    required this.id,
-    required this.examId,
-    required this.userId,
-    required this.userAnswers,
-    required this.score,
-    required this.completedAt,
-  });
+  const ExamQuestion({
+    String? id,
+    required this.question,
+    required this.options,
+    required this.correctAnswer,
+    required this.explanation,
+    this.type = 'multiple_choice',
+    this.userAnswer,
+    this.isCorrect,
+  }) : id = id ?? '';
 
-  factory ExamResult.fromJson(Map<String, dynamic> json) {
-    return ExamResult(
-      id: json['id'],
-      examId: json['exam_id'],
-      userId: json['user_id'],
-      userAnswers: Map<int, String>.from(json['user_answers']),
-      score: json['score'].toDouble(),
-      completedAt: DateTime.parse(json['completed_at']),
+  factory ExamQuestion.fromJson(Map<String, dynamic> json) =>
+      _$ExamQuestionFromJson(json);
+  Map<String, dynamic> toJson() => _$ExamQuestionToJson(this);
+
+  ExamQuestion copyWith({
+    String? id,
+    String? question,
+    List<String>? options,
+    int? correctAnswer,
+    String? explanation,
+    String? type,
+    String? userAnswer,
+    bool? isCorrect,
+  }) {
+    return ExamQuestion(
+      id: id ?? this.id,
+      question: question ?? this.question,
+      options: options ?? this.options,
+      correctAnswer: correctAnswer ?? this.correctAnswer,
+      explanation: explanation ?? this.explanation,
+      type: type ?? this.type,
+      userAnswer: userAnswer ?? this.userAnswer,
+      isCorrect: isCorrect ?? this.isCorrect,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'exam_id': examId,
-      'user_id': userId,
-      'user_answers': userAnswers,
-      'score': score,
-      'completed_at': completedAt.toIso8601String(),
-    };
+  // Métodos de utilidad
+  bool get hasUserAnswer => userAnswer != null && userAnswer!.isNotEmpty;
+
+  String get correctOptionText =>
+      correctAnswer >= 0 && correctAnswer < options.length
+          ? options[correctAnswer]
+          : '';
+
+  String get userAnswerText {
+    if (userAnswer == null) return '';
+
+    if (type == 'multiple_choice') {
+      final index = int.tryParse(userAnswer!);
+      return index != null && index >= 0 && index < options.length
+          ? options[index]
+          : userAnswer!;
+    }
+
+    return userAnswer!;
+  }
+
+  bool get isMultipleChoice => type == 'multiple_choice';
+  bool get isOpenEnded => type == 'open_ended';
+  bool get isTrueFalse => type == 'true_false';
+
+  ExamQuestion withAnswer(String answer) {
+    bool? correct;
+
+    if (isMultipleChoice) {
+      final answerIndex = int.tryParse(answer);
+      correct = answerIndex == correctAnswer;
+    } else {
+      // Para preguntas abiertas, aquí se podría implementar lógica más compleja
+      correct = answer.toLowerCase().trim() == explanation.toLowerCase().trim();
+    }
+
+    return copyWith(userAnswer: answer, isCorrect: correct);
+  }
+
+  @override
+  List<Object?> get props => [
+    id,
+    question,
+    options,
+    correctAnswer,
+    explanation,
+    type,
+    userAnswer,
+    isCorrect,
+  ];
+}
+
+@JsonSerializable()
+class ExamSettings extends Equatable {
+  final String subject;
+  final String difficulty;
+  @JsonKey(name: 'question_count')
+  final int questionCount;
+  @JsonKey(name: 'time_limit')
+  final int? timeLimit;
+  final List<String> topics;
+  @JsonKey(name: 'question_type')
+  final String questionType;
+  @JsonKey(name: 'document_content')
+  final String? documentContent;
+
+  const ExamSettings({
+    required this.subject,
+    required this.difficulty,
+    required this.questionCount,
+    this.timeLimit,
+    required this.topics,
+    required this.questionType,
+    this.documentContent,
+  });
+
+  factory ExamSettings.fromJson(Map<String, dynamic> json) =>
+      _$ExamSettingsFromJson(json);
+  Map<String, dynamic> toJson() => _$ExamSettingsToJson(this);
+
+  // Validaciones
+  bool get isValid {
+    return questionCount > 0 &&
+        questionCount <= 50 &&
+        (timeLimit == null || (timeLimit! > 0 && timeLimit! <= 180)) &&
+        (topics.isNotEmpty || hasDocumentContent);
+  }
+
+  bool get hasDocumentContent =>
+      documentContent != null && documentContent!.isNotEmpty;
+
+  String get validationError {
+    if (questionCount <= 0 || questionCount > 50) {
+      return 'El número de preguntas debe estar entre 1 y 50';
+    }
+    if (timeLimit != null && (timeLimit! <= 0 || timeLimit! > 180)) {
+      return 'El límite de tiempo debe estar entre 1 y 180 minutos';
+    }
+    if (topics.isEmpty && !hasDocumentContent) {
+      return 'Debe seleccionar al menos un tema o subir un documento';
+    }
+    return '';
+  }
+
+  @override
+  List<Object?> get props => [
+    subject,
+    difficulty,
+    questionCount,
+    timeLimit,
+    topics,
+    questionType,
+    documentContent,
+  ];
+}
+
+// Enums para mayor type safety
+enum ExamDifficulty {
+  basico('Básico'),
+  intermedio('Intermedio'),
+  avanzado('Avanzado'),
+  experto('Experto');
+
+  const ExamDifficulty(this.displayName);
+  final String displayName;
+}
+
+enum QuestionType {
+  multipleChoice('multiple_choice', 'Opción Múltiple'),
+  openEnded('open_ended', 'Pregunta Abierta'),
+  trueFalse('true_false', 'Verdadero/Falso');
+
+  const QuestionType(this.value, this.displayName);
+  final String value;
+  final String displayName;
+}
+
+// Extensiones útiles
+extension ExamModelExtensions on ExamModel {
+  String get statusText {
+    if (isCompleted) {
+      return 'Completado - $formattedScore';
+    } else if (answeredQuestions > 0) {
+      return 'En progreso ($answeredQuestions/$questionCount)';
+    }
+    return 'No iniciado';
+  }
+
+  Color get statusColor {
+    if (isCompleted) {
+      if (score != null && score! >= 70) return Colors.green;
+      if (score != null && score! >= 50) return Colors.orange;
+      return Colors.red;
+    }
+    return Colors.blue;
   }
 }

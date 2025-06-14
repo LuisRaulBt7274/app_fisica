@@ -32,11 +32,12 @@ class AppRouter {
         return '/login';
       }
 
-      // Si está autenticado y trata de acceder a login/signup
+      // Si está autenticado y trata de acceder a una ruta pública, redirigir a /home
       if (isLoggedIn && isPublicRoute) {
         return '/home';
       }
 
+      // No redirigir
       return null;
     },
     routes: [

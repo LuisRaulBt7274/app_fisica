@@ -1,12 +1,11 @@
 class PromptTemplates {
   static String examPrompt({
-    required String subject,
     required String difficulty,
     required int questionCount,
     required String topics,
   }) {
     return '''
-Actúa como un experto profesor de $subject. Crea un examen de nivel $difficulty con $questionCount preguntas sobre los siguientes temas: $topics.
+Actúa como un experto profesor de Física. Crea un examen de nivel $difficulty con $questionCount preguntas sobre los siguientes temas: $topics.
 
 Instrucciones:
 - Incluye diferentes tipos de preguntas: opción múltiple, verdadero/falso, respuesta corta y desarrollo
@@ -15,7 +14,7 @@ Instrucciones:
 - Incluye explicaciones breves para las respuestas
 
 Formato de respuesta:
-## EXAMEN DE $subject
+## EXAMEN DE Física
 
 ### Pregunta 1 (Opción múltiple)
 [Pregunta]
@@ -37,7 +36,7 @@ d) [Opción D]
     required String subject,
   }) {
     return '''
-Actúa como un tutor experto en $subject. Ayuda a resolver el siguiente ejercicio paso a paso:
+Actúa como un tutor experto en Física. Ayuda a resolver el siguiente ejercicio paso a paso:
 
 EJERCICIO:
 $exercise
@@ -166,7 +165,7 @@ Usa el formato estándar de flashcards con frente y reverso claramente marcados.
     required String level,
   }) {
     return '''
-Explica el concepto "$concept" en el área de $subject para un nivel $level.
+Explica el concepto "$concept" en el área de Física para un nivel $level.
 
 Instrucciones:
 - Proporciona una explicación clara y comprensible

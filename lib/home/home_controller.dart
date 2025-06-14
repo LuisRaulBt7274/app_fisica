@@ -17,7 +17,7 @@ class HomeController extends GetxController {
   }
 
   void _loadUserData() {
-    final user = _authService.currentUser.value;
+    final user = _authService.currentUser;
     if (user != null) {
       userName.value = user.userMetadata?['full_name'] ?? 'Usuario';
       userEmail.value = user.email ?? '';
@@ -26,11 +26,11 @@ class HomeController extends GetxController {
 
   // Navegación a diferentes secciones
   void navigateToExams() {
-    Get.toNamed('/exam');
+    Get.toNamed('/exams');
   }
 
   void navigateToExercises() {
-    Get.toNamed('/exercise');
+    Get.toNamed('/exercises');
   }
 
   void navigateToFlashcards() {
@@ -69,15 +69,5 @@ class HomeController extends GetxController {
     } finally {
       isLoading.value = false;
     }
-  }
-
-  // Estadísticas del usuario
-  final RxInt totalExams = 0.obs;
-  final RxInt totalExercises = 0.obs;
-  final RxInt totalFlashcards = 0.obs;
-
-  void updateStats() {
-    // Aquí puedes implementar la lógica para obtener estadísticas del usuario
-    // desde Supabase
   }
 }
